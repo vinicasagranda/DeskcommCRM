@@ -87,18 +87,50 @@ async function handle(req: NextRequest): Promise<Response> {
     };
 
     try {
+      // Quem agendou foi um humano: envia como `user` para NÃO cair no
+      // bloqueio de modo de teste (pre_go_live), que só vale para automação/IA.
+      // Com `webhook_source` a mensagem nascia `automation`, falhava com
+      // «Envio automático bloqueado…» e o celular não recebia nada.
+      const actor = row.created_by_user_id
+        ? ({ type: "user" as const, id: row.created_by_user_id })
+        : ({ type: "webhook_source" as const, id: row.id });
       const msg = await sendMessageHandler(
         admin,
         {
           organization_id: row.organization_id,
-          actor: {
-            type: "webhook_source",
-            id: row.created_by_user_id ?? row.id,
-          },
+          actor,
           requestId: `scheduled-messages:${row.id}`,
         },
         input,
       );
+
+      if (msg.status === "failed") {
+        const erro =
+          msg.error_message?.slice(0, 500) ||
+          msg.error_code ||
+          "Envio da mensagem agendada falhou.";
+        await admin
+          .from("scheduled_messages")
+          .update({
+            status: "failed",
+            sent_message_id: msg.id,
+            last_error: erro,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", row.id);
+        falhas += 1;
+        void audit({
+          action: "scheduled_message.failed",
+          actorUserId: row.created_by_user_id,
+          organizationId: row.organization_id,
+          resourceType: "scheduled_message",
+          resourceId: row.id,
+          requestId,
+          metadata: { message_id: msg.id, error: erro.slice(0, 200) },
+        });
+        continue;
+      }
+
       await admin
         .from("scheduled_messages")
         .update({

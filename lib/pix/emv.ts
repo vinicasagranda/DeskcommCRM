@@ -137,11 +137,11 @@ export function formatarIntroCobranca(opts: {
   });
   const linhas = [`*Cobrança Pix — ${opts.nome}*`, `Valor: ${valor}`];
   if (opts.description?.trim()) linhas.push(opts.description.trim());
-  linhas.push("", "Escaneie o QR ou use o botão para copiar o código:");
+  linhas.push("", "Escaneie o QR ou toque e segure a mensagem seguinte para copiar o código:");
   return linhas.join("\n");
 }
 
-/** Corpo + header da mensagem de cobrança com botão Copiar (EMV). */
+/** Corpo + header (legado sendButtons — não usar no envio). */
 export function formatarHeaderCobranca(opts: { nome: string }): string {
   return `Cobrança Pix — ${opts.nome}`.slice(0, 60);
 }
@@ -159,16 +159,17 @@ export function formatarCorpoCobranca(opts: {
   return linhas.join("\n");
 }
 
-/** @deprecated Preferir intro + chave sozinha. */
+/** Texto puro da chave — o que o celular precisa receber de fato. */
 export function formatarMensagemChave(opts: {
   nome: string;
   keyType: string;
   keyValue: string;
 }): string {
-  return `${formatarIntroChave(opts)}\n${opts.keyValue}`;
+  const tipo = TIPO_LABEL[opts.keyType] ?? opts.keyType;
+  return `*Pix — ${opts.nome}*\nTipo: ${tipo}\nChave: ${opts.keyValue}`;
 }
 
-/** @deprecated Preferir intro + EMV sozinho. */
+/** Intro + EMV (legado). Preferir QR + mensagem só com EMV. */
 export function formatarMensagemCobranca(opts: {
   nome: string;
   valorReais: number;

@@ -164,6 +164,19 @@ export interface OutboundEnvelope extends ChannelTenantScope {
    * `undefined` = envio solto, que é o caso comum.
    */
   replyToExternalId?: string | null;
+  /**
+   * Botão “copiar código” (CTA copy) — Pix, cupom, OTP.
+   *
+   * OPCIONAL. Canal que não sabe montar botão interativo IGNORA e manda só
+   * `body` (o adapter pode anexar o código no texto). Não é a bolha nativa
+   * `payment_info` do WhatsApp; é o botão genérico de copiar.
+   */
+  copyButton?: {
+    label: string;
+    code: string;
+    header?: string;
+    footer?: string;
+  };
 }
 
 /**

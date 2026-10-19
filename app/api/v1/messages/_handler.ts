@@ -1176,6 +1176,25 @@ export async function sendMessageHandler(
           },
         }));
       } else {
+        // Pix / CTA copy: metadata.pix.copy_code → envelope.copyButton (WAHA
+        // sendButtons). Canal sem botão ignora e manda o body.
+        const pixMeta = outboundMetadata.pix as
+          | {
+              copy_code?: string;
+              copy_label?: string;
+              header?: string;
+              footer?: string;
+            }
+          | undefined;
+        const copyButton =
+          typeof pixMeta?.copy_code === "string" && pixMeta.copy_code.trim()
+            ? {
+                code: pixMeta.copy_code.trim(),
+                label: (pixMeta.copy_label?.trim() || "Copiar chave Pix").slice(0, 20),
+                header: pixMeta.header?.trim() || undefined,
+                footer: pixMeta.footer?.trim() || undefined,
+              }
+            : undefined;
         await checkBoundary();
         ({ externalId } = await adapter.send({
           beforeSend: checkBoundary,
@@ -1186,6 +1205,7 @@ export async function sendMessageHandler(
           kind: input.type,
           body: corpoDoCanal(input.body ?? "") ?? "",
           replyToExternalId: citada?.external_id ?? null,
+          copyButton,
         }));
       }
 

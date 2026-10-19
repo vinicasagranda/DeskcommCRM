@@ -753,6 +753,49 @@ export class WahaClient {
   }
 
   /**
+   * Mensagem interativa com botões (`POST /api/sendButtons`, NOWEB).
+   *
+   * Usamos o tipo `copy` (nativeFlow `cta_copy`) para Pix: o celular mostra um
+   * botão que copia `copyCode` num toque. Não é a bolha nativa `payment_info`
+   * (logo Pix + “Copiar chave Pix” oficial) — o WAHA ainda não a expõe — mas é
+   * o caminho HTTP que existe hoje. Botões são frágeis (Meta já quebrou); o
+   * adapter cai para `sendText` se isto falhar.
+   */
+  async sendButtons(
+    session: string,
+    chatId: string,
+    input: {
+      header?: string;
+      body: string;
+      footer?: string;
+      buttons: Array<
+        | { type: "copy"; text: string; copyCode: string; id?: string }
+        | { type: "reply"; text: string; id?: string }
+        | { type: "url"; text: string; url: string; id?: string }
+        | { type: "call"; text: string; phoneNumber: string; id?: string }
+      >;
+    },
+  ): Promise<unknown> {
+    const res = await this.fetchComTeto(`${this.baseUrl}/api/sendButtons`, {
+      method: "POST",
+      headers: {
+        "X-Api-Key": this.apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        session,
+        chatId,
+        body: input.body,
+        buttons: input.buttons,
+        ...(input.header ? { header: input.header } : {}),
+        ...(input.footer ? { footer: input.footer } : {}),
+      }),
+    });
+    if (!res.ok) throw new Error(`waha_${res.status}`);
+    return res.json();
+  }
+
+  /**
    * O visto azul: marca como lida a conversa (`Send Seen` da API do WAHA).
    *
    * `POST /api/sendSeen` — a sessão vai no CORPO, como em `sendText`, e não no

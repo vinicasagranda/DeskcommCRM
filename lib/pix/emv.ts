@@ -108,13 +108,24 @@ export function keyTypeParaPixNativo(tipo: string): "CPF" | "CNPJ" | "EMAIL" | "
   }
 }
 
-/** Introdução curta (antes da chave/EMV sozinha — facilita o “Copiar” no celular). */
-export function formatarIntroChave(opts: { nome: string; keyType: string }): string {
-  const tipo = TIPO_LABEL[opts.keyType] ?? opts.keyType;
-  return `*Pix — ${opts.nome}*\nTipo: ${tipo}\n\nToque e segure a mensagem seguinte para copiar a chave:`;
+/** Cabeçalho curto da bolha com botão Copiar (sendButtons). */
+export function formatarHeaderChave(opts: { nome: string }): string {
+  return `Pix — ${opts.nome}`.slice(0, 60);
 }
 
-/** Legenda do QR da cobrança (sem o EMV — o EMV vai em mensagem só). */
+/** Corpo da mensagem de chave (sem o código — ele vai no botão copy). */
+export function formatarCorpoChave(opts: { keyType: string; keyValue: string }): string {
+  const tipo = TIPO_LABEL[opts.keyType] ?? opts.keyType;
+  return `Tipo: ${tipo}\nChave: ${opts.keyValue}`;
+}
+
+/** Introdução curta (legado / fallback texto). */
+export function formatarIntroChave(opts: { nome: string; keyType: string }): string {
+  const tipo = TIPO_LABEL[opts.keyType] ?? opts.keyType;
+  return `*Pix — ${opts.nome}*\nTipo: ${tipo}`;
+}
+
+/** Legenda do QR da cobrança. */
 export function formatarIntroCobranca(opts: {
   nome: string;
   valorReais: number;
@@ -124,12 +135,27 @@ export function formatarIntroCobranca(opts: {
     style: "currency",
     currency: "BRL",
   });
-  const linhas = [
-    `*Cobrança Pix — ${opts.nome}*`,
-    `Valor: ${valor}`,
-  ];
+  const linhas = [`*Cobrança Pix — ${opts.nome}*`, `Valor: ${valor}`];
   if (opts.description?.trim()) linhas.push(opts.description.trim());
-  linhas.push("", "Escaneie o QR ou toque e segure a mensagem seguinte para copiar o código:");
+  linhas.push("", "Escaneie o QR ou use o botão para copiar o código:");
+  return linhas.join("\n");
+}
+
+/** Corpo + header da mensagem de cobrança com botão Copiar (EMV). */
+export function formatarHeaderCobranca(opts: { nome: string }): string {
+  return `Cobrança Pix — ${opts.nome}`.slice(0, 60);
+}
+
+export function formatarCorpoCobranca(opts: {
+  valorReais: number;
+  description?: string;
+}): string {
+  const valor = opts.valorReais.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+  const linhas = [`Valor: ${valor}`];
+  if (opts.description?.trim()) linhas.push(opts.description.trim());
   return linhas.join("\n");
 }
 

@@ -18,12 +18,10 @@ if [ -z "${INTERNAL_SECRET:-}" ]; then
   exit 1
 fi
 
-# Constante, não configuração: `app` é o nome do serviço na rede interna do
-# compose, e o scheduler não fala com mais nada. A primeira versão disto lia um
-# `SCHEDULER_APP_ORIGIN` que o compose nunca repassava e nenhum template
-# documentava — controle decorativo, que é pior que controle nenhum: quem o
-# encontrasse no código o definiria no `.env` e não veria efeito.
-APP_ORIGIN="http://app:3000"
+# Na rede do compose o serviço se chama `app`. No Swarm/Portainer o DNS
+# canônico costuma ser `deskcomm_app` (e `app` às vezes falha em resolução).
+# SCHEDULER_APP_ORIGIN deixa a VPS apontar o certo sem rebuild.
+APP_ORIGIN="${SCHEDULER_APP_ORIGIN:-http://app:3000}"
 
 # minuto|timeout|caminho — uma linha por cron. O caminho vai COMPLETO de
 # propósito: o literal `api/v1/cron/<rota>` é o contrato que

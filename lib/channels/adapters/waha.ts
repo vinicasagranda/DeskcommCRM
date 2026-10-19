@@ -299,27 +299,22 @@ export const wahaAdapter: ChannelAdapter = {
         wahaSendPlanFor(envelope.kind, envelope.media),
       );
     } else if (envelope.copyButton) {
-      // Botão Copiar (cta_copy). Se o WAHA/Meta recusar botões, cai em texto
-      // com a chave no corpo — melhor entregar do que falhar o Pix inteiro.
+      // NÃO usar sendButtons: o WAHA aceita (PENDING/ack=2) mas o celular
+      // costuma receber bolha vazia / “não suportada” (interactive em
+      // viewOnceMessage). Texto puro garante a chave no aparelho.
       await envelope.beforeSend?.();
       const btn = envelope.copyButton;
-      const corpo = (envelope.body ?? "").trim() || btn.code;
-      try {
-        res = await client.sendButtons(envelope.sessionRef, to, {
-          header: btn.header,
-          body: corpo,
-          footer: btn.footer,
-          buttons: [{ type: "copy", text: btn.label.slice(0, 20), copyCode: btn.code }],
-        });
-      } catch (err) {
-        const detail = err instanceof Error ? err.message : String(err);
-        logger.warn("[waha] sendButtons falhou; fallback para texto", {
-          error: detail,
-          session: envelope.sessionRef,
-        });
-        const textoFallback = [btn.header, corpo, btn.code].filter(Boolean).join("\n");
-        res = await client.sendMessage(envelope.sessionRef, to, textoFallback);
-      }
+      const corpo = (envelope.body ?? "").trim();
+      const texto = [btn.header, corpo, btn.code].filter(Boolean).join("\n");
+      logger.info("[waha] Pix/CTA: sendText (sendButtons desligado — some no celular)", {
+        session: envelope.sessionRef,
+      });
+      res = await client.sendMessage(
+        envelope.sessionRef,
+        to,
+        texto,
+        envelope.replyToExternalId ? idCompletoDaMensagem(envelope.replyToExternalId, to) : null,
+      );
     } else {
       await envelope.beforeSend?.();
       res = await client.sendMessage(

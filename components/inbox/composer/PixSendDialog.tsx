@@ -20,11 +20,8 @@ import { apiClient } from "@/lib/api/client";
 import { showApiError } from "@/components/feedback/ApiErrorToast";
 import { usePixKeys } from "@/hooks/inbox/usePixKeys";
 import {
-  formatarCorpoChave,
-  formatarCorpoCobranca,
-  formatarHeaderChave,
-  formatarHeaderCobranca,
   formatarIntroCobranca,
+  formatarMensagemChave,
   montarEmvPix,
 } from "@/lib/pix/emv";
 import { cn } from "@/lib/utils";
@@ -35,8 +32,8 @@ interface Props {
   conversationId: string;
   sending?: boolean;
   /**
-   * Envia via WAHA `sendButtons` (botão Copiar). QR opcional na cobrança.
-   * metadata.pix.copy_code dispara o botão no handler de mensagens.
+   * Texto puro (visível no celular). Cobrança: QR opcional + mensagem só com EMV.
+   * Não usa sendButtons — some no aparelho mesmo com ack delivered.
    */
   onSendPix: (payload: {
     body: string;
@@ -95,15 +92,13 @@ export function PixSendDialog({
     try {
       if (modo === "chave") {
         await onSendPix({
-          body: formatarCorpoChave({ keyType: chave.key_type, keyValue: chave.key_value }),
+          body: formatarMensagemChave({
+            nome: chave.name,
+            keyType: chave.key_type,
+            keyValue: chave.key_value,
+          }),
           metadata: {
-            pix: {
-              key_id: chave.id,
-              mode: "chave",
-              copy_code: chave.key_value,
-              copy_label: "Copiar chave Pix",
-              header: formatarHeaderChave({ nome: chave.name }),
-            },
+            pix: { key_id: chave.id, mode: "chave" },
           },
         });
         onOpenChange(false);
@@ -127,18 +122,13 @@ export function PixSendDialog({
       });
       const file = dataUrlParaFile(data.data_url, `pix-cobranca-${chave.id}.png`);
       await onSendPix({
-        body: formatarCorpoCobranca({
-          valorReais: reais,
-          description: descricao || undefined,
-        }),
+        // Mensagem seguinte só com o EMV — toque longo → Copiar no celular.
+        body: emv,
         metadata: {
           pix: {
             key_id: chave.id,
             mode: "cobranca",
             amount_cents: Math.round(reais * 100),
-            copy_code: emv,
-            copy_label: "Copiar código Pix",
-            header: formatarHeaderCobranca({ nome: chave.name }),
           },
         },
         qrFile: file,
@@ -162,7 +152,7 @@ export function PixSendDialog({
         <DialogHeader>
           <DialogTitle>{t("Enviar Pix")}</DialogTitle>
           <DialogDescription>
-            {t("Envia com botão Copiar no WhatsApp (toque único no celular).")}
+            {t("Envia a chave em texto no WhatsApp (visível e copiável no celular).")}
           </DialogDescription>
         </DialogHeader>
         {isLoading ? (

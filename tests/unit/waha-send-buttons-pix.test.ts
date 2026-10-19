@@ -1,6 +1,6 @@
 /**
- * Contratos do caminho Pix → sendButtons (cta_copy) no WAHA.
- * Não sobe HTTP: só garante o shape que o client monta e o fallback do adapter.
+ * Pix não usa mais sendButtons: o WAHA aceita (ack delivered) e o celular
+ * recebe bolha vazia. O caminho copyButton vira sendText com a chave no corpo.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -35,15 +35,14 @@ vi.mock("@/lib/logger", () => ({
 
 import { wahaAdapter } from "@/lib/channels/adapters/waha";
 
-describe("wahaAdapter.copyButton → sendButtons", () => {
+describe("wahaAdapter.copyButton → sendText (sendButtons desligado)", () => {
   beforeEach(() => {
     sendButtons.mockReset();
     sendMessage.mockReset();
-    sendButtons.mockResolvedValue({ key: { id: "3EB0PIX" } });
     sendMessage.mockResolvedValue({ id: "3EB0TXT" });
   });
 
-  it("manda cta_copy com o código Pix", async () => {
+  it("nunca chama sendButtons; manda texto com a chave", async () => {
     const out = await wahaAdapter.send({
       organizationId: "org",
       sessionRef: "sess",
@@ -57,39 +56,12 @@ describe("wahaAdapter.copyButton → sendButtons", () => {
       },
     });
 
-    expect(sendButtons).toHaveBeenCalledWith(
-      "sess",
-      "5511999999999@c.us",
-      expect.objectContaining({
-        header: "Pix — vini",
-        body: "Tipo: CPF\nChave: 02784668266",
-        buttons: [{ type: "copy", text: "Copiar chave Pix", copyCode: "02784668266" }],
-      }),
-    );
-    expect(sendMessage).not.toHaveBeenCalled();
-    expect(out.externalId).toBe("3EB0PIX");
-  });
-
-  it("cai em texto se sendButtons falhar", async () => {
-    sendButtons.mockRejectedValueOnce(new Error("waha_500"));
-
-    const out = await wahaAdapter.send({
-      organizationId: "org",
-      sessionRef: "sess",
-      to: "5511999999999@c.us",
-      kind: "text",
-      body: "Tipo: CPF",
-      copyButton: {
-        label: "Copiar chave Pix",
-        code: "02784668266",
-        header: "Pix — vini",
-      },
-    });
-
+    expect(sendButtons).not.toHaveBeenCalled();
     expect(sendMessage).toHaveBeenCalledWith(
       "sess",
       "5511999999999@c.us",
-      "Pix — vini\nTipo: CPF\n02784668266",
+      "Pix — vini\nTipo: CPF\nChave: 02784668266\n02784668266",
+      null,
     );
     expect(out.externalId).toBe("3EB0TXT");
   });

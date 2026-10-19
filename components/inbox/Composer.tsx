@@ -934,27 +934,29 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
         onOpenChange={setPixOpen}
         conversationId={conversationId}
         sending={send.isPending || upload.isPending}
-        onSendPix={async ({ qrFile, caption, copyBody, metadata }) => {
-          // 1) QR com intro  2) mensagem só com chave/EMV (toque longo → Copiar)
-          const uploaded = await upload.mutateAsync({
-            conversationId,
-            file: qrFile,
-            filename: qrFile.name,
-            destino: "mensagem",
-          });
-          await send.mutateAsync({
-            conversation_id: conversationId,
-            type: uploaded.kind,
-            body: caption,
-            media_storage_path: uploaded.storage_path,
-            media_mime: uploaded.media_mime,
-            media_size_bytes: uploaded.media_size_bytes,
-            metadata,
-          });
+        onSendPix={async ({ body, metadata, qrFile, qrCaption }) => {
+          // Cobrança: QR opcional; chave/EMV: mensagem com botão Copiar (sendButtons).
+          if (qrFile) {
+            const uploaded = await upload.mutateAsync({
+              conversationId,
+              file: qrFile,
+              filename: qrFile.name,
+              destino: "mensagem",
+            });
+            await send.mutateAsync({
+              conversation_id: conversationId,
+              type: uploaded.kind,
+              body: qrCaption,
+              media_storage_path: uploaded.storage_path,
+              media_mime: uploaded.media_mime,
+              media_size_bytes: uploaded.media_size_bytes,
+              metadata,
+            });
+          }
           await send.mutateAsync({
             conversation_id: conversationId,
             type: "text",
-            body: copyBody,
+            body,
             metadata,
           });
         }}

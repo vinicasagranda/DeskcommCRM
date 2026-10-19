@@ -20,7 +20,10 @@ import { apiClient } from "@/lib/api/client";
 import { showApiError } from "@/components/feedback/ApiErrorToast";
 import { usePixKeys } from "@/hooks/inbox/usePixKeys";
 import {
-  formatarIntroChave,
+  formatarCorpoChave,
+  formatarCorpoCobranca,
+  formatarHeaderChave,
+  formatarHeaderCobranca,
   formatarIntroCobranca,
   montarEmvPix,
 } from "@/lib/pix/emv";
@@ -32,15 +35,14 @@ interface Props {
   conversationId: string;
   sending?: boolean;
   /**
-   * Envia sequência: QR (imagem) + mensagem só com a chave/EMV para o celular
-   * oferecer “Copiar” no toque longo. A bolha nativa “Copiar chave Pix” do
-   * WhatsApp exige payment_info, que o WAHA ainda não expõe para envio.
+   * Envia via WAHA `sendButtons` (botão Copiar). QR opcional na cobrança.
+   * metadata.pix.copy_code dispara o botão no handler de mensagens.
    */
   onSendPix: (payload: {
-    qrFile: File;
-    caption: string;
-    copyBody: string;
-    metadata?: Record<string, unknown>;
+    body: string;
+    metadata: Record<string, unknown>;
+    qrFile?: File;
+    qrCaption?: string;
   }) => Promise<void> | void;
 }
 
@@ -92,19 +94,17 @@ export function PixSendDialog({
     setBusy(true);
     try {
       if (modo === "chave") {
-        const emv = montarEmvPix({
-          chave: chave.key_value,
-          nome: chave.name,
-        });
-        const { data } = await apiClient.post<{ data: { data_url: string } }>("/api/v1/pix/qr", {
-          payload: emv,
-        });
-        const file = dataUrlParaFile(data.data_url, `pix-chave-${chave.id}.png`);
         await onSendPix({
-          qrFile: file,
-          caption: formatarIntroChave({ nome: chave.name, keyType: chave.key_type }),
-          copyBody: chave.key_value,
-          metadata: { pix: { key_id: chave.id, mode: "chave" } },
+          body: formatarCorpoChave({ keyType: chave.key_type, keyValue: chave.key_value }),
+          metadata: {
+            pix: {
+              key_id: chave.id,
+              mode: "chave",
+              copy_code: chave.key_value,
+              copy_label: "Copiar chave Pix",
+              header: formatarHeaderChave({ nome: chave.name }),
+            },
+          },
         });
         onOpenChange(false);
         return;
@@ -127,16 +127,26 @@ export function PixSendDialog({
       });
       const file = dataUrlParaFile(data.data_url, `pix-cobranca-${chave.id}.png`);
       await onSendPix({
+        body: formatarCorpoCobranca({
+          valorReais: reais,
+          description: descricao || undefined,
+        }),
+        metadata: {
+          pix: {
+            key_id: chave.id,
+            mode: "cobranca",
+            amount_cents: Math.round(reais * 100),
+            copy_code: emv,
+            copy_label: "Copiar código Pix",
+            header: formatarHeaderCobranca({ nome: chave.name }),
+          },
+        },
         qrFile: file,
-        caption: formatarIntroCobranca({
+        qrCaption: formatarIntroCobranca({
           nome: chave.name,
           valorReais: reais,
           description: descricao || undefined,
         }),
-        copyBody: emv,
-        metadata: {
-          pix: { key_id: chave.id, mode: "cobranca", amount_cents: Math.round(reais * 100) },
-        },
       });
       onOpenChange(false);
     } catch (err) {
@@ -152,9 +162,7 @@ export function PixSendDialog({
         <DialogHeader>
           <DialogTitle>{t("Enviar Pix")}</DialogTitle>
           <DialogDescription>
-            {t(
-              "Envia QR + código para copiar no celular. A bolha nativa do WhatsApp depende do canal (WAHA ainda não envia payment_info).",
-            )}
+            {t("Envia com botão Copiar no WhatsApp (toque único no celular).")}
           </DialogDescription>
         </DialogHeader>
         {isLoading ? (
